@@ -5,7 +5,7 @@
 # Default destination is ./extracted
 default_source="."
 default_destination="./extracted"
-already_extracted_dir="./already_extracted_originals" # Directory for already processed files
+already_extracted_dir="" # Directory for already processed files, to be set dynamically in the source directory
 
 # Variables for user-provided directories
 source_dir="$default_source"
@@ -75,6 +75,10 @@ while [[ "$#" -gt 0 ]]; do
     esac
 done
 
+# Set the already_extracted_dir dynamically in the source directory
+already_extracted_dir="$source_dir/already_extracted_originals"
+processed_archives=() # Array to track processed archives
+
 # Function: Check and install required tools
 # Verifies if a required tool is installed, and prompts for installation if missing
 function check_and_install {
@@ -97,24 +101,25 @@ function check_and_install {
 function extract_file {
     file="$1"
     ext="$2"
+    echo "Extracting file: $file into $destination_dir..."
     case "$ext" in
         "zip")
-            check_and_install "unzip" && unzip "$file" -d "$destination_dir"
+            check_and_install "unzip" && unzip -o "$file" -d "$destination_dir" > /dev/null 2>&1
             ;;
         "tar.gz"|"tgz")
-            check_and_install "tar" && tar -xvzf "$file" -C "$destination_dir"
+            check_and_install "tar" && tar -xvzf "$file" -C "$destination_dir" > /dev/null 2>&1
             ;;
         "tar.bz2")
-            check_and_install "tar" && tar -xvjf "$file" -C "$destination_dir"
+            check_and_install "tar" && tar -xvjf "$file" -C "$destination_dir" > /dev/null 2>&1
             ;;
         "tar.xz")
-            check_and_install "tar" && tar -xvJf "$file" -C "$destination_dir"
+            check_and_install "tar" && tar -xvJf "$file" -C "$destination_dir" > /dev/null 2>&1
             ;;
         "7z")
-            check_and_install "p7zip-full" && 7z x "$file" -o"$destination_dir"
+            check_and_install "p7zip-full" && 7z x "$file" -o"$destination_dir" > /dev/null 2>&1
             ;;
         "rar")
-            check_and_install "unrar" && unrar x "$file" "$destination_dir"
+            check_and_install "unrar" && unrar x -o+ "$file" "$destination_dir" > /dev/null 2>&1
             ;;
         *)
             echo "File format $ext is not supported. Skipping the file."
@@ -134,36 +139,54 @@ function extract_file {
 }
 
 # Function: Handle multi-part archives (RAR, ZIP, etc.)
-# Detects and extracts all parts of a multi-part archive
+# Detects and extracts only the first part of a multi-part archive
 function handle_multipart_archive {
     base_file="$1"
     ext="$2"
+    archive_name="${base_file%.*}" # Base name without extensions
+
+    # Skip processing if archive has already been extracted
+    if [[ " ${processed_archives[@]} " =~ " $archive_name " ]]; then
+        echo "Skipping already processed archive: $archive_name"
+        return
+    fi
+
+    # Add to processed archives
+    processed_archives+=("$archive_name")
+
+    # Extract only the first part of multi-part archives
+    if [[ "$base_file" =~ \.part[0-9]+\.$ext$ && ! "$base_file" =~ \.part1\.$ext$ ]]; then
+        echo "Skipping non-first part of multi-part archive: $base_file"
+        return
+    fi
+
+    echo "Extracting multi-part archive: $base_file into $destination_dir..."
     case "$ext" in
         "rar")
-            check_and_install "unrar" && unrar x "$base_file" "$destination_dir"
+            check_and_install "unrar" && unrar x -o+ "$base_file" "$destination_dir" > /dev/null 2>&1
             ;;
         "zip")
-            check_and_install "unzip" && unzip "$base_file" -d "$destination_dir"
+            check_and_install "unzip" && unzip -o "$base_file" -d "$destination_dir" > /dev/null 2>&1
             ;;
         "7z")
-            check_and_install "p7zip-full" && 7z x "$base_file" -o"$destination_dir"
+            check_and_install "p7zip-full" && 7z x "$base_file" -o"$destination_dir" > /dev/null 2>&1
             ;;
         "tar.gz"|"tgz")
-            check_and_install "tar" && tar -xvzf "$base_file" -C "$destination_dir"
+            check_and_install "tar" && tar -xvzf "$base_file" -C "$destination_dir" > /dev/null 2>&1
             ;;
         "tar.bz2")
-            check_and_install "tar" && tar -xvjf "$base_file" -C "$destination_dir"
+            check_and_install "tar" && tar -xvjf "$base_file" -C "$destination_dir" > /dev/null 2>&1
             ;;
         "tar.xz")
-            check_and_install "tar" && tar -xvJf "$base_file" -C "$destination_dir"
+            check_and_install "tar" && tar -xvJf "$base_file" -C "$destination_dir" > /dev/null 2>&1
             ;;
         *)
             echo "Multi-part handling not supported for file type: $ext"
             return
             ;;
     esac
-
-    # Handle post-processing for multi-part archives
+    
+# Handle post-processing for multi-part archives
     if $remove_files; then
         rm "${base_file%.*}"*  # Remove all parts of the archive
     else
