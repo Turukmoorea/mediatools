@@ -185,8 +185,8 @@ function handle_multipart_archive {
             return
             ;;
     esac
-    
-# Handle post-processing for multi-part archives
+
+    # Handle post-processing for multi-part archives
     if $remove_files; then
         rm "${base_file%.*}"*  # Remove all parts of the archive
     else
@@ -211,11 +211,13 @@ fi
 # Process a specific file if provided
 if [[ -n "$specific_file" ]]; then
     ext=$(echo "$specific_file" | grep -oE '\.[^./]+$' | sed 's/^\.//')
+    echo "Processing specific file: $specific_file"
     if [[ "$specific_file" == *.part1.* || "$specific_file" == *.[a-z][0-9][0-9] ]]; then
         handle_multipart_archive "$specific_file" "$ext"
     else
         extract_file "$specific_file" "$ext"
     fi
+    echo "Extraction completed for file: $specific_file"
     exit 0
 fi
 
@@ -229,15 +231,17 @@ for file in "$source_dir"/*; do
     if [ -f "$file" ]; then
         # Extract file extension
         extension=$(echo "$file" | grep -oE '\.[^./]+$' | sed 's/^\.//')
-        
+        echo "Starting extraction for file: $file"
+
         # Handle multi-part extensions
         if [[ "$file" == *.part1.* || "$file" == *.[a-z][0-9][0-9] ]]; then
             handle_multipart_archive "$file" "$extension"
         else
-            # Extract the file
             extract_file "$file" "$extension"
         fi
     fi
 
 done
 
+# Completion message
+echo "Extraction process completed for directory: $source_dir"
