@@ -101,7 +101,9 @@ function check_and_install {
 function extract_file {
     file="$1"
     ext="$2"
-    echo "Extracting file: $file into $destination_dir..."
+    timestamp=$(date +"%Y-%m-%d %H:%M:%S")
+    echo "[$timestamp] Extracting file $file in process ..."
+
     case "$ext" in
         "zip")
             check_and_install "unzip" && unzip -o "$file" -d "$destination_dir" > /dev/null 2>&1
@@ -122,7 +124,7 @@ function extract_file {
             check_and_install "unrar" && unrar x -o+ "$file" "$destination_dir" > /dev/null 2>&1
             ;;
         *)
-            echo "File format $ext is not supported. Skipping the file."
+            echo "[$timestamp] File format $ext is not supported. Skipping the file."
             return
             ;;
     esac
@@ -143,24 +145,20 @@ function extract_file {
 function handle_multipart_archive {
     base_file="$1"
     ext="$2"
+    timestamp=$(date +"%Y-%m-%d %H:%M:%S")
+    echo "[$timestamp] Extracting multi-part archive $base_file in procress ..."
+
     archive_name="${base_file%.*}" # Base name without extensions
 
     # Skip processing if archive has already been extracted
     if [[ " ${processed_archives[@]} " =~ " $archive_name " ]]; then
-        echo "Skipping already processed archive: $archive_name"
+        echo "[$timestamp] Skipping already processed archive: $archive_name"
         return
     fi
 
     # Add to processed archives
     processed_archives+=("$archive_name")
 
-    # Extract only the first part of multi-part archives
-    if [[ "$base_file" =~ \.part[0-9]+\.$ext$ && ! "$base_file" =~ \.part1\.$ext$ ]]; then
-        echo "Skipping non-first part of multi-part archive: $base_file"
-        return
-    fi
-
-    echo "Extracting multi-part archive: $base_file into $destination_dir..."
     case "$ext" in
         "rar")
             check_and_install "unrar" && unrar x -o+ "$base_file" "$destination_dir" > /dev/null 2>&1
@@ -181,7 +179,7 @@ function handle_multipart_archive {
             check_and_install "tar" && tar -xvJf "$base_file" -C "$destination_dir" > /dev/null 2>&1
             ;;
         *)
-            echo "Multi-part handling not supported for file type: $ext"
+            echo "[$timestamp] Multi-part handling not supported for file type: $ext"
             return
             ;;
     esac
@@ -197,6 +195,7 @@ function handle_multipart_archive {
     fi
 }
 
+
 # Ensure the destination directory exists
 if [ ! -d "$destination_dir" ]; then
     mkdir -p "$destination_dir"
@@ -211,10 +210,12 @@ fi
 # Process a specific file if provided
 if [[ -n "$specific_file" ]]; then
     ext=$(echo "$specific_file" | grep -oE '\.[^./]+$' | sed 's/^\.//')
-    echo "Processing specific file: $specific_file"
+    timestamp=$(date +"%Y-%m-%d %H:%M:%S")
     if [[ "$specific_file" == *.part1.* || "$specific_file" == *.[a-z][0-9][0-9] ]]; then
+        echo "[$timestamp] Extracting multi-part archive $specific_file in procress ..."
         handle_multipart_archive "$specific_file" "$ext"
     else
+        echo "[$timestamp] Extracting file $specific_file in process ..."
         extract_file "$specific_file" "$ext"
     fi
     echo "Extraction completed for file: $specific_file"
@@ -231,7 +232,6 @@ for file in "$source_dir"/*; do
     if [ -f "$file" ]; then
         # Extract file extension
         extension=$(echo "$file" | grep -oE '\.[^./]+$' | sed 's/^\.//')
-        echo "Starting extraction for file: $file"
 
         # Handle multi-part extensions
         if [[ "$file" == *.part1.* || "$file" == *.[a-z][0-9][0-9] ]]; then
@@ -240,8 +240,8 @@ for file in "$source_dir"/*; do
             extract_file "$file" "$extension"
         fi
     fi
-
 done
+
 
 # Completion message
 echo "Extraction process completed for directory: $source_dir"
