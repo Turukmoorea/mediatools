@@ -49,7 +49,7 @@ function display_help {
 # Loop through the provided arguments and set variables or display help
 while [[ "$#" -gt 0 ]]; do
     case "$1" in
-        -h)
+        -h | --help)
             display_help
             ;;
         -s)
@@ -66,6 +66,10 @@ while [[ "$#" -gt 0 ]]; do
             ;;
         -r|--remove)
             remove_files=true
+            shift
+            ;;
+        --part-allow)
+            part_allow=true  # Enable processing of all part files
             shift
             ;;
         *)
@@ -230,8 +234,11 @@ fi
 
 for file in "$source_dir"/*; do
     if [ -f "$file" ]; then
-        # Extract file extension
+        # Dateiendung extrahieren
         extension=$(echo "$file" | grep -oE '\.[^./]+$' | sed 's/^\.//')
+
+        # Vermeide doppelte Schrägstriche
+        file=$(realpath --relative-to="$PWD" "$file")
 
         # Handle multi-part extensions
         if [[ "$file" == *.part1.* || "$file" == *.[a-z][0-9][0-9] ]]; then
@@ -241,6 +248,7 @@ for file in "$source_dir"/*; do
         fi
     fi
 done
+
 
 
 # Completion message
